@@ -209,11 +209,20 @@ func (s *FlightService) healthCheckLoop() {
 	}
 }
 
+// nodeHTTPScheme picks http/https for the node's HTTP API per its UseTLS
+// field, mirroring StreamService.nodeStreamURL's ws/wss choice.
+func nodeHTTPScheme(node config.NodeEndpoint) string {
+	if node.UseTLS {
+		return "https"
+	}
+	return "http"
+}
+
 // checkNode verifies a node is reachable via HTTP
 func (s *FlightService) checkNode(node config.NodeEndpoint) error {
 	// Node HTTP API runs on FlightServer.Port + 1
 	httpPort := node.Port + 1
-	url := fmt.Sprintf("http://%s:%d/health", node.Host, httpPort)
+	url := fmt.Sprintf("%s://%s:%d/health", nodeHTTPScheme(node), node.Host, httpPort)
 
 	resp, err := s.healthClient.Get(url)
 	if err != nil {
@@ -232,7 +241,7 @@ func (s *FlightService) checkNode(node config.NodeEndpoint) error {
 // fetchNodeRange retrieves a node's min/max timestamp via GET /metadata/stats.
 func (s *FlightService) fetchNodeRange(node config.NodeEndpoint) (tsRange, error) {
 	httpPort := node.Port + 1
-	url := fmt.Sprintf("http://%s:%d/metadata/stats", node.Host, httpPort)
+	url := fmt.Sprintf("%s://%s:%d/metadata/stats", nodeHTTPScheme(node), node.Host, httpPort)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return tsRange{}, err
@@ -503,7 +512,7 @@ func (s *FlightService) postNodeJSON(ctx context.Context, node config.NodeEndpoi
 
 	// Node HTTP API runs on FlightServer.Port + 1
 	httpPort := node.Port + 1
-	url := fmt.Sprintf("http://%s:%d%s", node.Host, httpPort, path)
+	url := fmt.Sprintf("%s://%s:%d%s", nodeHTTPScheme(node), node.Host, httpPort, path)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
